@@ -19,6 +19,7 @@ int QRDthreshold = 2400;
 int sec = 3906;
 int dist = 3906 * 0.85;
 
+
 void line_follow(void)
 {
         if (ADC1BUF10 <= QRDthreshold && ADC1BUF11 >= 1240 && ADC1BUF9 >= 1240) // if QRD2 (middle) sees white
@@ -29,7 +30,7 @@ void line_follow(void)
             OC2RS = reg ; // right on
             OC2R = OC2RS * 0.5; // 50% duty cycle
         }
-        else if (ADC1BUF11 <= QRDthreshold && ADC1BUF10 >= 1240 && ADC1BUF9 >= 1240) // if QRD1 (left) sees white
+        else if (ADC1BUF11 <= QRDthreshold && ADC1BUF10 >= 1240 && ADC1BUF9 >= 1240 || ADC1BUF11 <= QRDthreshold && ADC1BUF10 <= QRDthreshold && ADC1BUF9 >= 1240 ) // if QRD1 (left) sees white
         {
             // Right wheel on, left wheel slower
             OC1RS = slow ; // left slower
@@ -37,7 +38,7 @@ void line_follow(void)
             OC2RS = fast ; // right faster
             OC2R = OC2RS * 0.5; // 50% duty cycle
         }
-        else if (ADC1BUF9 <= QRDthreshold && ADC1BUF10 >= 1240 && ADC1BUF11 >= 1240) // if QRD3 (right) sees white
+        else if (ADC1BUF9 <= QRDthreshold && ADC1BUF10 >= 1240 && ADC1BUF11 >= 1240 || ADC1BUF9 <= QRDthreshold && ADC1BUF10 <= QRDthreshold && ADC1BUF11 >= 1240) // if QRD3 (right) sees white
         {
             // Left wheel on, right wheel slower
             OC1RS = fast ; // left faster
@@ -67,6 +68,18 @@ void line_follow(void)
             }
             _LATA1 = 1;
         }
+        else if ((ADC1BUF14 >= 1500) ) // if IR diode senses ball collect 1861
+        {
+            _LATB2 = 1;
+            OC1RS = 0 ; // left slower
+            OC1R = OC1RS * 0.5; // 50% duty cycle
+            OC2RS = 0 ; // right faster
+            OC2R = OC2RS * 0.5; // 50% duty cycle
+            return;
+            
+//            current_state = COLLECT;
+        }
+        
         else {
             // If all 3 QRDs see black, go straight slowly
             OC1RS = slow ; // left slower
@@ -86,6 +99,7 @@ void ball_collect(void)
     pause();
     turn_left_collect();
     pause();
+    wheel_dir();      
 
 }
 
@@ -94,7 +108,7 @@ void turn_right_collect(void) {
     _LATA0 = 0;
     _LATA1 = 1; // LEFT (pin 3) clockwise
     _LATB9 = 0; //  RIGHT (pin 13) clockwise
-    while (TMR1 <= 0.65*sec) { // turn right
+    while (TMR1 <= 0.60*sec) { // turn right
                 OC1RS = reg * 1.25 ; // left slower
                 OC1R = OC1RS * 0.5; // 50% duty cycle
                 OC2RS = reg * 1.25; // right faster
