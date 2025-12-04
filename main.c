@@ -5,6 +5,8 @@
 #include "setup.h"
 #include "global_variables.h"
 
+int ball_counter = 0;
+
 int main(void) {
     // Post-scale oscillator
     _RCDIV = 0b000;             // Divide-by-1 post-scaler
@@ -19,18 +21,24 @@ int main(void) {
     wheel_dir(); // Set wheel direction
     
     //initialize state here
-    state current_state = COLLECT;
+    state current_state = LINEFOLLOW;
     
     while (1) 
     {
         switch(current_state) 
         {
             case LINEFOLLOW: // If current_state == LINEFOLLOW
-                _LATB2 = 1;
+                
                 line_follow();
+                if (ADC1BUF14 >= 1500 && ball_counter ==0) {
+                    current_state = COLLECT;
+                    
+                }
                 break;
             case COLLECT: // If current_state == COLLECT
                 ball_collect();
+                _LATB2 = 0;
+                ball_counter = 1;
                 current_state = LINEFOLLOW;
                 break;
 //            case RETURN: // If current_state == RETURN
