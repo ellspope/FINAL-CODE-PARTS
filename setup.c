@@ -27,9 +27,25 @@ void config_pins(void) {
     _TRISB2 = 1;
     _ANSB2 = 1;
     
-    // Pin 6 is our debug LED
-    _TRISB2 = 0; // output
-    _ANSB2 = 0; // digital
+    // Configure pin 2 (RB0) as analog input for ball color QRD
+    _TRISA0 = 1;
+    _ANSA0 = 1;
+    
+    // Pin 12 is proximity sensor
+    //pin 12 defaults to digital, it cannot do analog, so we don't have to configure that part of it
+    _TRISB8 = 1; // pin 12 is input
+    
+    // Pin 6 is front sharp sensor
+    _TRISB2 = 1; // input 
+    _ANSB2 = 1; // analog
+    
+    // Pin 7 is right sharp sensor
+    _TRISA2 = 1; // input
+    _ANSA2 = 1; // analog
+    
+    // Pin 9 LED
+    _TRISB4 = 0;
+    _ANSB4 = 0;
     
 }
 
@@ -60,7 +76,7 @@ void config_ad(void){
                     // results appear in ADC1BUF12
     _CSCNA = 1;     // AD1CON2<10> -- Does not scan inputs specified in AD1CSSx
                     // registers
-    _SMPI = 4;      // AD1CON2<6:2> -- Results sent to buffer after n conversion
+    _SMPI = 6;      // AD1CON2<6:2> -- Results sent to buffer after n conversion
                     // For example, if you are sampling 4 channels, you
                     // should have _SMPI = 3;
     _ALTS = 0;      // AD1CON2<0> -- Sample MUXA only
@@ -80,6 +96,8 @@ void config_ad(void){
     _CSS9 = 1; //scan pin 18
     _CSS0 = 1; //scan pin 2
     _CSS14 = 1; //scan pin 8
+    _CSS4 = 1; // scan 6
+    _CSS13 = 1; // scan 7
     
     _ADON = 1;      // AD1CON1<15> -- Turn on A/D
 }
@@ -100,6 +118,14 @@ void config_pwm(void) {
     OC2CON2bits.SYNCSEL = 0x1F; // Self-synchronization
     OC2CON2bits.OCTRIG = 0;     // Synchronization mode
     OC2CON1bits.OCM = 0b110;    // Edge-aligned PWM mode
+    
+    // Configure PWM for pin 5 (servo motor)
+    OC3CON1 = 0;                // Clear all bits of OC3CON1
+    OC3CON2 = 0;                // Clear all bits of OC3CON2
+    OC3CON1bits.OCTSEL = 0b111; // System clock as timing source
+    OC3CON2bits.SYNCSEL = 0x1F; // Self-synchronization
+    OC3CON2bits.OCTRIG = 0;     // Synchronization mode
+    OC3CON1bits.OCM = 0b110;    // Edge-aligned PWM mode
 }
 
 void config_tmr1(void) {
@@ -114,9 +140,20 @@ void initial_OCregisters(void) {
     OC1R = OC1RS * 0.5; // 50% duty cycle
     OC2RS = 0;
     OC2R = OC1RS * 0.5; // 50% duty cycle
+    
+    // Initialize OC3RS and OC3R
+    OC3RS = 4999; // 50 Hz PWM frequency
+    OC3R = 425;
 }
 
 void wheel_dir(void) {
-    _LATA1 = 1; // LEFT (pin 3) clockwise
-    _LATB9 = 1; //  RIGHT (pin 13) clockwise
+    _LATA1 = 1; // LEFT (pin 3) forward
+    _LATB9 = 1; //  RIGHT (pin 13) forward
+}
+
+void config_OCinterrupt(void) {
+    // interrupt for pin 14
+    _OC1IE = 1; //ENABLE CN
+    _OC1IP = 6; // SET CN INTERRUPT PRIORITY
+    _OC1IF = 0; // CLEAR INTERRUPT FLAG
 }
