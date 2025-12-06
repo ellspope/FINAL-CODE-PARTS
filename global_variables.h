@@ -7,5 +7,14 @@
 
 // States for which task the robot should be performing
 typedef enum {LINEFOLLOW, COLLECT, RETURN, CANYON, TRANSMIT} state;
+//extern state current_state;
+
+extern int ball_counter;
+extern int return_counter;
+extern int QRDthreshold;
+
+extern int x_right;
+extern int x_front;
 
 #endif	/* XC_HEADER_TEMPLATE_H */
+
