@@ -19,6 +19,22 @@ int QRDthreshold = 2400;
 int sec = 3906;
 int dist = 3906 * 0.85;
 
+// variables for ball return
+int steps = 0;
+int time = 31250;
+int ball_color = 0;
+int temp_time = 0;
+
+// variables for canyon sonar
+int x_right;
+int x_front;
+
+void __attribute__((interrupt, no_auto_psv)) _OC1Interrupt(void)
+{
+    _OC1IF = 0;
+     steps ++ ;
+    // this function is called
+}
 
 void line_follow(void)
 {
@@ -87,6 +103,13 @@ void line_follow(void)
             OC1R = OC1RS * 0.5; // 0% duty cycle > left off
             OC2R = OC2RS * 0.5; // 0% duty cycle > right off
         }
+        
+        if (ball_counter == 1 && return_counter == 0) {
+            if (ADC1BUF0 <= 2400) {
+                ball_color = 1;
+                _LATB2 = 1;
+            }
+        }
 }
 
 void ball_collect(void)
@@ -106,8 +129,8 @@ void ball_collect(void)
 void turn_right_collect(void) {
     TMR1 = 0;
     _LATA0 = 0;
-    _LATA1 = 1; // LEFT (pin 3) clockwise
-    _LATB9 = 0; //  RIGHT (pin 13) clockwise
+    _LATA1 = 1; // LEFT (pin 3) forward
+    _LATB9 = 0; //  RIGHT (pin 13) backward
     while (TMR1 <= 0.60*sec) { // turn right
                 OC1RS = reg * 1.25 ; // left slower
                 OC1R = OC1RS * 0.5; // 50% duty cycle
@@ -119,8 +142,8 @@ void turn_right_collect(void) {
 void turn_left_collect(void) {
     TMR1 = 0;
     _LATA0 = 0;
-    _LATA1 = 0; // LEFT (pin 3) clockwise
-    _LATB9 = 1; //  RIGHT (pin 13) clockwise
+    _LATA1 = 0; // LEFT (pin 3) backward
+    _LATB9 = 1; //  RIGHT (pin 13) forward
     while (TMR1 <= 0.57*sec) { // turn right
                 OC1RS = reg * 1.25 ; // left slower
                 OC1R = OC1RS * 0.5; // 50% duty cycle
@@ -141,8 +164,8 @@ void pause(void) {
 void collect(void) {
     TMR1 = 0;
     _LATA0 = 0;
-    _LATA1 = 1; // LEFT (pin 3) clockwise
-    _LATB9 = 1; //  RIGHT (pin 13) clockwise
+    _LATA1 = 1; // LEFT (pin 3) forward
+    _LATB9 = 1; //  RIGHT (pin 13) forward
     while (TMR1 < dist) {
             OC1RS = reg * 1.25; // left on
             OC1R = OC1RS * 0.5; // 50% duty cycle
@@ -154,12 +177,179 @@ void collect(void) {
 void backup(void) {
    TMR1 = 0;
     _LATA0 = 0;
-    _LATA1 = 0; // LEFT (pin 3) clockwise
-    _LATB9 = 0; //  RIGHT (pin 13) clockwise
+    _LATA1 = 0; // LEFT (pin 3) backward
+    _LATB9 = 0; //  RIGHT (pin 13) backward
     while (TMR1 < dist) {
             OC1RS = reg * 1.25; // left on
             OC1R = OC1RS * 0.5; // 50% duty cycle
             OC2RS = reg * 1.25; // right on
             OC2R = OC2RS * 0.5; // 50% duty cycle
     } 
+}
+
+void ball_return(void) 
+{
+    //if ((TMR1 < 3906.25*2)) { // If Timer1 < 2s
+//            if (ADC1BUF0 <= 2400) { // if ball is white
+//                _LATB2 = 1;
+//                ball_color = 1;
+//            }
+//            else { // ball is black
+//            }
+        //}
+    //else {
+        if (ball_color == 0){ // If ball is black
+            turn_right_return(); // turn right 90 deg
+            while (OC3R > 175) {
+                if ((TMR1-temp_time)> 400){
+                    //OC3R = 125; // 0 deg
+                    temp_time = TMR1;
+                        OC3R -= 5;
+                }
+            }
+            turn_left_return();
+            OC3R = 425;
+            wheel_dir(); // reset wheels to forward
+        }
+        else if (ball_color == 1){ // If ball is white
+            turn_left_return();
+            while (OC3R > 175) {
+                if ((TMR1-temp_time)> 400){
+                    //OC3R = 125; // 0 deg
+                    temp_time = TMR1;
+                        OC3R -= 5;
+                }
+            }
+            turn_right_return();
+            OC3R = 425;
+            wheel_dir(); // reset wheels to forward
+        }
+    //}
+}
+
+void delay(void) {
+    TMR1 = 0;
+    while (TMR1 < time/2) {
+        OC1R = 0;
+        OC2R = 0;
+    }
+}
+
+void turn_right_return(void) {
+    //steps = 0;
+    OC1R = 0; // 0% duty cycle > left off
+    OC2R = 0; // 0% duty cycle > right off
+    delay();
+    steps = 0;
+    while(steps <= 138.5 * 2 *2) {
+            _LATA1 = 1; //  LEFT forward
+            _LATB9 = 0; //  RIGHT backward
+            OC1RS = 1249 * 0.5;
+            OC1R = OC1RS * 0.5;
+            OC2RS = 1249 * 0.5;
+            OC2R = OC1RS * 0.5;
+             
+    }
+    OC1R = 0;
+    OC2R = 0;
+           
+             
+}
+
+void turn_left_return(void) {
+    //steps = 0;
+    OC1R = 0; // 0% duty cycle > left off
+    OC2R = 0; // 0% duty cycle > right off
+    delay();
+    steps = 0;
+    while(steps <= 138.5 * 2 *2) {
+            _LATA1 = 0; //  LEFT backward
+            _LATB9 = 1; //  RIGHT forward
+            OC1RS = 1249 * 0.5;
+            OC1R = OC1RS * 0.5;
+            OC2RS = 1249 * 0.5;
+            OC2R = OC1RS * 0.5;
+             
+    }
+    OC1R = 0;
+    OC2R = 0;
+
+}
+
+void nav_canyon (void)
+{
+    if (ADC1BUF4 <= 2150) { // 1861=threshold for 1.5 V; no wall
+            // Go straight
+            _LATA1 = 1; //  LEFT forward
+            _LATB9 = 1; //  RIGHT forward
+        } 
+        else if (ADC1BUF4 >= 2150 && ADC1BUF13 >= 1000) { // If front sees wall and right sees wall
+            //_LATB4 = 0;
+            turn_left_canyon();
+        }
+        else if (ADC1BUF4 >= 2150 && ADC1BUF13 <= 1000) { // If front sees wall and right does NOT
+            //_LATB4 = 0;
+            turn_right_canyon();
+        }
+    if (ADC1BUF10 <= QRDthreshold && ADC1BUF11 <= QRDthreshold || ADC1BUF9 <= QRDthreshold && ADC1BUF10 <= QRDthreshold) {
+        //canyon_counter = 1;
+        if (ADC1BUF13 <= 1050) { // right sharp doesn't see wall {
+            TMR1 = 0;
+            
+            while (TMR1 <= 2200/2) // go straight for a little bit 
+            {
+                OC1RS = reg ; // left slower
+                OC1R = OC1RS * 0.5; // 50% duty cycle
+                OC2RS = reg ; // right faster
+                OC2R = OC2RS * 0.5; // 50% duty cycle
+            }
+            TMR1 = 0;
+            turn_right_canyon();
+            wheel_dir();
+            current_state = LINEFOLLOW;
+        }
+        else {
+            TMR1 = 0;
+            
+            while (TMR1 <= 2200/2) // go straight for a little bit 
+            {
+                OC1RS = reg ; // left slower
+                OC1R = OC1RS * 0.5; // 50% duty cycle
+                OC2RS = reg ; // right faster
+                OC2R = OC2RS * 0.5; // 50% duty cycle
+            }
+            TMR1 = 0;
+            turn_left_canyon();
+            wheel_dir();
+             current_state = LINEFOLLOW;
+        }
+
+    }
+                
+                
+}
+
+void turn_right_canyon(void) {
+    steps = 0;
+    while(steps <= 138.5 * 2 *2) {
+            _LATA1 = 1; //  LEFT forward
+            _LATB9 = 0; //  RIGHT backward
+            OC1RS = 1249 * 0.5;
+            OC1R = OC1RS * 0.5;
+            OC2RS = 1249 * 0.5;
+            OC2R = OC1RS * 0.5;
+             
+    }
+}
+
+void turn_left_canyon(void) {
+    steps = 0;
+    while(steps <= 138.5 * 2 *2) {
+            _LATA1 = 0; //  LEFT backward
+            _LATB9 = 1; //  RIGHT forward
+            OC1RS = 1249 * 0.5;
+            OC1R = OC1RS * 0.5;
+            OC2RS = 1249 * 0.5;
+            OC2R = OC1RS * 0.5;
+    }
 }
