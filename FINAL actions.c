@@ -1,0 +1,84 @@
+/*
+ * File:   main3.c
+ * Author: canos
+ *
+ * Created on December 9, 2025, 12:27 AM
+ */
+
+
+#pragma config FNOSC = LPFRC //choose the internal 500 kHz oscillator
+#pragma config OSCIOFNC = OFF   // Turn off clock output on pin 8
+#pragma config SOSCSRC = DIG    // Turn off secondary oscillator on pins 9&10
+#include "xc.h"
+#include "setup.h"
+#include "global_variables.h"
+
+int ball_counter = 0; // 0 = ball not collected, 1 = ball collected
+int return_counter = 0; // 0 = not returned, 1 = ball returned
+int canyon_counter = 0; // 0 = hasn't done canyon yet, 1 = it has
+
+int prev_state = 0;
+int new_state = 0;
+
+float prev_val = 0;
+float val = 0;
+
+//initialize state here
+state current_state = LINEFOLLOW; // initializing this here makes it a global variable, so it can be accessed by all files
+
+int main(void) {
+    // Post-scale oscillator
+    _RCDIV = 0b000;             // Divide-by-1 post-scaler
+
+    // Configure pins, ADC, PWM, Timer1, OC interrupt
+    config_pins();
+    config_ad(); 
+    config_pwm();
+    config_tmr1();
+    config_OCinterrupt();
+    
+    initial_OCregisters(); // Initialize OC1RS and OC1R
+    wheel_dir(); // Set wheel direction to forward
+    
+    while (1) 
+    {
+        switch(current_state) 
+        {
+            case LINEFOLLOW: // If current_state == LINEFOLLOW
+                line_follow();
+                if (ADC1BUF14 >= 1600 && ball_counter == 0) {
+                    current_state = COLLECT;
+                }
+                else if (_RB8 == 0 && return_counter == 0 && ball_counter == 1 && (ADC1BUF10 <= 2400 || ADC1BUF11 <= 2400 || ADC1BUF9 <= 2400)) {
+                    current_state = RETURN;
+                }
+                else if (ADC1BUF10 >= 2400 && ADC1BUF11 >= 2400 && ADC1BUF9 >= 2400 && ADC1BUF13 >= 1000 && _RB8 == 0) { // All line QRDs see black and right sharp sensor sees wall and left prox 
+                    current_state = CANYON;
+                }
+                else if (ADC1BUF10 >= QRDthreshold && ADC1BUF11 >= QRDthreshold && ADC1BUF9 >= QRDthreshold && ADC1BUF4 >= 1500 && _RB8 == 0) {
+                    current_state = TRANSMIT;
+                }
+                break;
+            case COLLECT: // If current_state == COLLECT
+                ball_collect();
+                ball_counter = 1;
+                current_state = LINEFOLLOW;
+                break;
+            case RETURN: // If current_state == RETURN
+                ball_return();
+                return_counter = 1;
+                current_state = LINEFOLLOW;
+                break;
+            case CANYON: // If current_state == CANYON
+                _LATA4 = 1;
+                nav_canyon();
+                //canyon_counter = 1;
+                break;
+            case TRANSMIT: // If current_state == TRANSMIT
+                transmit_sig();
+                break;
+        }
+    }
+    
+    return 0;
+}
